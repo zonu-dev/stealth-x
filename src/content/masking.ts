@@ -543,6 +543,11 @@ function isProfileSummaryElement(element: Element, account: CurrentAccount): boo
 }
 
 function elementBelongsToCurrentUser(element: Element, account: CurrentAccount): boolean {
+  // Skip elements inside quoted tweets to avoid masking other users' info in quotes
+  if (isInsideQuotedTweet(element)) {
+    return false;
+  }
+
   if (element.closest(SIDEBAR_ACCOUNT_SELECTORS.join(","))) {
     return true;
   }
@@ -572,13 +577,38 @@ function elementBelongsToCurrentUser(element: Element, account: CurrentAccount):
     return true;
   }
 
-  return elementLinksToHandle(element, account.handle);
+  // Only check for links on own profile route to avoid masking own account info
+  // referenced on other profiles (e.g., notification messages on other users' profiles)
+  if (isOwnProfileRoute(element, account)) {
+    return elementLinksToHandle(element, account.handle);
+  }
+
+  return false;
 }
 
 function isBeforeElement(candidate: Element, boundary: Element): boolean {
   return Boolean(
     candidate.compareDocumentPosition(boundary) & Node.DOCUMENT_POSITION_FOLLOWING
   );
+}
+
+function isInsideQuotedTweet(element: Element): boolean {
+  // Check if "引用" (quoted) text exists in ancestor chain
+  // Quoted tweets are marked with a "引用" label in their parent structure
+  let current: Element | null = element;
+
+  while (current && current !== document.documentElement) {
+    // Check if current element's immediate children contain "引用" text
+    for (const child of current.children) {
+      if (child.textContent?.trim() === "引用") {
+        return true;
+      }
+    }
+
+    current = current.parentElement;
+  }
+
+  return false;
 }
 
 function getAvatarTargetFromCandidate(candidate: Element): HTMLElement | null {
@@ -1088,6 +1118,34 @@ function applySidebarMask(root: ParentNode, settings: MaskSettings) {
   }
 }
 
+function applyUserCellIdentityMask(
+  root: ParentNode,
+  settings: MaskSettings,
+  account: CurrentAccount
+) {
+  if (!settings.maskDisplayName && !settings.maskUsername) {
+    return;
+  }
+
+  for (const userCell of collectMatches<HTMLElement>(root, ['[data-testid="UserCell"]'])) {
+    if (!userCellBelongsToCurrentUser(userCell, account)) {
+      continue;
+    }
+
+    for (const textNode of getTextNodes(userCell)) {
+      const classification = classifyIdentityText(textNode.textContent ?? "");
+
+      if (classification === "displayName" && settings.maskDisplayName) {
+        wrapTextNode(textNode, DISPLAY_ALIAS, classification);
+      }
+
+      if (classification === "username" && settings.maskUsername) {
+        wrapTextNode(textNode, USERNAME_ALIAS, classification);
+      }
+    }
+  }
+}
+
 function maskTitleText(
   title: string,
   settings: MaskSettings,
@@ -1227,5 +1285,6 @@ export function applyMasking(root: ParentNode, settings: MaskSettings) {
   applyPostCountMask(root, settings, account);
   applyStatsMask(root, settings, account);
   applySidebarMask(root, settings);
+  applyUserCellIdentityMask(root, settings, account);
   applyDocumentTitleMask(root, settings, account);
 }
