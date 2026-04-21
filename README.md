@@ -3,6 +3,10 @@
 職場や共有スペースで X を開くときに、肩越しに見られても自分のアカウントが特定されにくいようにする Chrome 拡張機能です。  
 自分のアカウント情報に該当する DOM 表示だけをローカルでマスクし、投稿・ログイン・X API 通信には触れません。
 
+## インストール
+
+[Chrome Web Store](https://chromewebstore.google.com/detail/stealth-x/aeppiepmgamegilfplcibgloedgmaace) からインストールできます。
+
 ## 公開リポジトリとしての前提
 
 - 収集機能、解析 SDK、外部送信は入れません
