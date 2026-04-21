@@ -1,0 +1,153 @@
+<!doctype html>
+<html
+  lang="ja"
+  style="width: 372px; min-width: 372px; overflow-x: hidden; margin: 0"
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>STEALTH X</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 372px;
+        min-width: 372px;
+        overflow-x: hidden;
+      }
+    </style>
+    <link rel="stylesheet" href="./popup.css" />
+    <script src="./popup.js" defer></script>
+  </head>
+  <body style="margin: 0; width: 372px; min-width: 372px; overflow-x: hidden">
+    <main
+      class="popup-shell"
+      style="width: 372px; min-width: 372px; box-sizing: border-box"
+    >
+      <header class="title-panel panel-frame">
+        <div class="title-copy">
+          <h1>STEALTH X</h1>
+          <p>Xの個人情報をまとめて隠す</p>
+        </div>
+        <div class="title-icon" aria-hidden="true">
+          <img src="./icons/icon-128.png" alt="" />
+        </div>
+      </header>
+
+      <section class="site-strip" aria-label="enable control">
+        <label class="field-card field-card--toggle" for="enabled">
+          <input id="enabled" class="binary-switch__input visually-hidden" type="checkbox" aria-label="有効化" />
+          <span class="binary-switch" aria-hidden="true">
+            <span class="binary-switch__state binary-switch__state--on">オン</span>
+            <span class="binary-switch__state binary-switch__state--off">オフ</span>
+            <span class="binary-switch__thumb"></span>
+          </span>
+        </label>
+      </section>
+
+      <details class="advanced panel-frame">
+        <summary class="advanced__summary">
+          <span class="advanced__label">詳細設定</span>
+          <span class="advanced__chevron" aria-hidden="true">▾</span>
+        </summary>
+        <div class="advanced__body">
+          <fieldset class="filter-list">
+            <label class="filter-row">
+              <span class="filter-row__copy"><strong>表示名</strong></span>
+              <input id="maskDisplayName" class="binary-switch__input visually-hidden" type="checkbox" />
+              <span class="binary-switch binary-switch--compact" aria-hidden="true">
+                <span class="binary-switch__state binary-switch__state--on">オン</span>
+                <span class="binary-switch__state binary-switch__state--off">オフ</span>
+                <span class="binary-switch__thumb"></span>
+              </span>
+            </label>
+
+            <label class="filter-row">
+              <span class="filter-row__copy"><strong>@ユーザー名</strong></span>
+              <input id="maskUsername" class="binary-switch__input visually-hidden" type="checkbox" />
+              <span class="binary-switch binary-switch--compact" aria-hidden="true">
+                <span class="binary-switch__state binary-switch__state--on">オン</span>
+                <span class="binary-switch__state binary-switch__state--off">オフ</span>
+                <span class="binary-switch__thumb"></span>
+              </span>
+            </label>
+
+            <label class="filter-row">
+              <span class="filter-row__copy"><strong>アイコン</strong></span>
+              <input id="maskAvatar" class="binary-switch__input visually-hidden" type="checkbox" />
+              <span class="binary-switch binary-switch--compact" aria-hidden="true">
+                <span class="binary-switch__state binary-switch__state--on">オン</span>
+                <span class="binary-switch__state binary-switch__state--off">オフ</span>
+                <span class="binary-switch__thumb"></span>
+              </span>
+            </label>
+
+            <label class="filter-row">
+              <span class="filter-row__copy"><strong>ヘッダ画像</strong></span>
+              <input id="maskBanner" class="binary-switch__input visually-hidden" type="checkbox" />
+              <span class="binary-switch binary-switch--compact" aria-hidden="true">
+                <span class="binary-switch__state binary-switch__state--on">オン</span>
+                <span class="binary-switch__state binary-switch__state--off">オフ</span>
+                <span class="binary-switch__thumb"></span>
+              </span>
+            </label>
+
+            <label class="filter-row">
+              <span class="filter-row__copy"><strong>プロフィール bio</strong></span>
+              <input id="maskBio" class="binary-switch__input visually-hidden" type="checkbox" />
+              <span class="binary-switch binary-switch--compact" aria-hidden="true">
+                <span class="binary-switch__state binary-switch__state--on">オン</span>
+                <span class="binary-switch__state binary-switch__state--off">オフ</span>
+                <span class="binary-switch__thumb"></span>
+              </span>
+            </label>
+
+            <label class="filter-row">
+              <span class="filter-row__copy"><strong>位置情報</strong></span>
+              <input id="maskLocation" class="binary-switch__input visually-hidden" type="checkbox" />
+              <span class="binary-switch binary-switch--compact" aria-hidden="true">
+                <span class="binary-switch__state binary-switch__state--on">オン</span>
+                <span class="binary-switch__state binary-switch__state--off">オフ</span>
+                <span class="binary-switch__thumb"></span>
+              </span>
+            </label>
+
+            <label class="filter-row">
+              <span class="filter-row__copy"><strong>登録日</strong></span>
+              <input id="maskJoinDate" class="binary-switch__input visually-hidden" type="checkbox" />
+              <span class="binary-switch binary-switch--compact" aria-hidden="true">
+                <span class="binary-switch__state binary-switch__state--on">オン</span>
+                <span class="binary-switch__state binary-switch__state--off">オフ</span>
+                <span class="binary-switch__thumb"></span>
+              </span>
+            </label>
+
+            <label class="filter-row">
+              <span class="filter-row__copy"><strong>投稿数</strong></span>
+              <input id="maskPostCount" class="binary-switch__input visually-hidden" type="checkbox" />
+              <span class="binary-switch binary-switch--compact" aria-hidden="true">
+                <span class="binary-switch__state binary-switch__state--on">オン</span>
+                <span class="binary-switch__state binary-switch__state--off">オフ</span>
+                <span class="binary-switch__thumb"></span>
+              </span>
+            </label>
+
+            <label class="filter-row">
+              <span class="filter-row__copy"><strong>フォロー/フォロワー数</strong></span>
+              <input id="maskStats" class="binary-switch__input visually-hidden" type="checkbox" />
+              <span class="binary-switch binary-switch--compact" aria-hidden="true">
+                <span class="binary-switch__state binary-switch__state--on">オン</span>
+                <span class="binary-switch__state binary-switch__state--off">オフ</span>
+                <span class="binary-switch__thumb"></span>
+              </span>
+            </label>
+          </fieldset>
+
+          <div class="action-list">
+            <button id="reset" type="button" class="action-button">初期値に戻す</button>
+          </div>
+        </div>
+      </details>
+    </main>
+  </body>
+</html>

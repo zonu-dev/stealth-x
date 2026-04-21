@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stealth X Settings</title>
+    <link rel="stylesheet" href="./options.css" />
+    <script src="./options.js" defer></script>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <p class="eyebrow">Stealth X</p>
+        <h1>詳細設定</h1>
+        <p class="lede">公開リポジトリ前提で、権限と挙動を最小に保ったまま使える設定だけに絞っています。</p>
+      </section>
+
+      <form id="settings-form" class="card">
+        <fieldset>
+          <legend>基本</legend>
+          <label>
+            <input id="enabled" type="checkbox" />
+            <span>拡張機能を有効化する</span>
+          </label>
+        </fieldset>
+
+        <fieldset>
+          <legend>匿名化する要素</legend>
+          <label><input id="maskDisplayName" type="checkbox" /> <span>表示名</span></label>
+          <label><input id="maskUsername" type="checkbox" /> <span>@ユーザー名</span></label>
+          <label><input id="maskAvatar" type="checkbox" /> <span>アイコン</span></label>
+          <label><input id="maskBanner" type="checkbox" /> <span>ヘッダ画像</span></label>
+          <label><input id="maskBio" type="checkbox" /> <span>プロフィール bio</span></label>
+          <label><input id="maskLocation" type="checkbox" /> <span>位置情報</span></label>
+          <label><input id="maskJoinDate" type="checkbox" /> <span>登録日</span></label>
+          <label><input id="maskPostCount" type="checkbox" /> <span>投稿数</span></label>
+          <label><input id="maskStats" type="checkbox" /> <span>フォロー / フォロワー統計</span></label>
+        </fieldset>
+
+        <div class="actions">
+          <p id="status" class="status" role="status">設定を読み込み中...</p>
+          <div class="buttons">
+            <button id="reset" type="button" class="secondary">初期値に戻す</button>
+            <button type="submit" class="primary">保存</button>
+          </div>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>
