@@ -8,8 +8,11 @@ export interface MaskSettings {
   maskDisplayName: boolean;
   maskUsername: boolean;
   maskAvatar: boolean;
+  maskAvatarBlur: boolean;
   maskBanner: boolean;
   maskBio: boolean;
+  maskVerifiedBadge: boolean;
+  maskWebsite: boolean;
   maskStats: boolean;
   maskLocation: boolean;
   maskJoinDate: boolean;
@@ -20,6 +23,7 @@ export const DEFAULT_SETTINGS: MaskSettings = {
   enabled: true,
   mode: "alias",
   maskAvatar: true,
+  maskAvatarBlur: false,
   maskBanner: true,
   maskBio: true,
   maskDisplayName: true,
@@ -27,7 +31,9 @@ export const DEFAULT_SETTINGS: MaskSettings = {
   maskLocation: true,
   maskPostCount: true,
   maskStats: true,
-  maskUsername: true
+  maskUsername: true,
+  maskVerifiedBadge: true,
+  maskWebsite: true
 };
 
 export function normalizeSettings(

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Stealth X",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Xで画面共有や録画をするときに、表示名・@ID・アイコンなど自分のアカウント情報をローカルで隠します。データの外部送信はありません。",
   "homepage_url": "https://github.com/zonu-dev/stealth-x",
   "permissions": [

@@ -50,11 +50,18 @@ async function initializePopup() {
   );
   const detailInputs = {
     maskAvatar: assertElement(document.querySelector<HTMLInputElement>("#maskAvatar")),
+    maskAvatarBlur: assertElement(
+      document.querySelector<HTMLInputElement>("#maskAvatarBlur")
+    ),
     maskBanner: assertElement(document.querySelector<HTMLInputElement>("#maskBanner")),
     maskBio: assertElement(document.querySelector<HTMLInputElement>("#maskBio")),
     maskDisplayName: assertElement(
       document.querySelector<HTMLInputElement>("#maskDisplayName")
     ),
+    maskVerifiedBadge: assertElement(
+      document.querySelector<HTMLInputElement>("#maskVerifiedBadge")
+    ),
+    maskWebsite: assertElement(document.querySelector<HTMLInputElement>("#maskWebsite")),
     maskJoinDate: assertElement(
       document.querySelector<HTMLInputElement>("#maskJoinDate")
     ),
@@ -67,6 +74,8 @@ async function initializePopup() {
     maskStats: assertElement(document.querySelector<HTMLInputElement>("#maskStats")),
     maskUsername: assertElement(document.querySelector<HTMLInputElement>("#maskUsername"))
   };
+
+  const blurRow = detailInputs.maskAvatarBlur.closest<HTMLLabelElement>(".filter-row");
 
   function renderAdvancedState(enabled: boolean) {
     if (enabled) {
@@ -81,6 +90,7 @@ async function initializePopup() {
   function areDetailSettingsDefault(settings: MaskSettings): boolean {
     return (
       settings.maskAvatar === DEFAULT_SETTINGS.maskAvatar &&
+      settings.maskAvatarBlur === DEFAULT_SETTINGS.maskAvatarBlur &&
       settings.maskBanner === DEFAULT_SETTINGS.maskBanner &&
       settings.maskBio === DEFAULT_SETTINGS.maskBio &&
       settings.maskDisplayName === DEFAULT_SETTINGS.maskDisplayName &&
@@ -88,13 +98,30 @@ async function initializePopup() {
       settings.maskLocation === DEFAULT_SETTINGS.maskLocation &&
       settings.maskPostCount === DEFAULT_SETTINGS.maskPostCount &&
       settings.maskStats === DEFAULT_SETTINGS.maskStats &&
-      settings.maskUsername === DEFAULT_SETTINGS.maskUsername
+      settings.maskUsername === DEFAULT_SETTINGS.maskUsername &&
+      settings.maskVerifiedBadge === DEFAULT_SETTINGS.maskVerifiedBadge &&
+      settings.maskWebsite === DEFAULT_SETTINGS.maskWebsite
     );
+  }
+
+  function renderBlurRowState(maskAvatarEnabled: boolean) {
+    detailInputs.maskAvatarBlur.disabled = !maskAvatarEnabled;
+
+    if (!blurRow) {
+      return;
+    }
+
+    if (maskAvatarEnabled) {
+      blurRow.dataset.disabled = "false";
+    } else {
+      blurRow.dataset.disabled = "true";
+    }
   }
 
   function renderForm(settings: MaskSettings) {
     enabledInput.checked = settings.enabled;
     detailInputs.maskAvatar.checked = settings.maskAvatar;
+    detailInputs.maskAvatarBlur.checked = settings.maskAvatarBlur;
     detailInputs.maskBanner.checked = settings.maskBanner;
     detailInputs.maskBio.checked = settings.maskBio;
     detailInputs.maskDisplayName.checked = settings.maskDisplayName;
@@ -103,13 +130,17 @@ async function initializePopup() {
     detailInputs.maskPostCount.checked = settings.maskPostCount;
     detailInputs.maskStats.checked = settings.maskStats;
     detailInputs.maskUsername.checked = settings.maskUsername;
+    detailInputs.maskVerifiedBadge.checked = settings.maskVerifiedBadge;
+    detailInputs.maskWebsite.checked = settings.maskWebsite;
     renderAdvancedState(settings.enabled);
+    renderBlurRowState(settings.maskAvatar);
     resetButton.disabled = areDetailSettingsDefault(settings);
   }
 
   function readDetailSettings(): Partial<MaskSettings> {
     return {
       maskAvatar: detailInputs.maskAvatar.checked,
+      maskAvatarBlur: detailInputs.maskAvatarBlur.checked,
       maskBanner: detailInputs.maskBanner.checked,
       maskBio: detailInputs.maskBio.checked,
       maskDisplayName: detailInputs.maskDisplayName.checked,
@@ -117,7 +148,9 @@ async function initializePopup() {
       maskLocation: detailInputs.maskLocation.checked,
       maskPostCount: detailInputs.maskPostCount.checked,
       maskStats: detailInputs.maskStats.checked,
-      maskUsername: detailInputs.maskUsername.checked
+      maskUsername: detailInputs.maskUsername.checked,
+      maskVerifiedBadge: detailInputs.maskVerifiedBadge.checked,
+      maskWebsite: detailInputs.maskWebsite.checked
     };
   }
 

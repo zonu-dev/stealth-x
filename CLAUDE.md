@@ -11,7 +11,7 @@
 - 権限最小化（storage と x.com/twitter.com の content script のみ）
 - 認証情報・Cookie を扱わない設計
 
-**バージョン:** 1.0.0  
+**バージョン:** 1.1.0
 **ライセンス:** MIT
 
 ## Code Style
@@ -122,6 +122,22 @@ npm test         # テスト実行
 npm run build    # 本番ビルド（dist/ 出力）
 npm run dev      # watch mode（開発時）
 ```
+
+### 拡張リロードが必要な変更後は原則ビルドする
+
+IMPORTANT: Chrome は `dist/` を読み込むため、ソースを編集しただけでは拡張に反映されない。以下に該当する変更をしたら、作業完了前に必ず `npm run build` を実行して `dist/` を更新する:
+
+- `src/content/**`（content script の DOM マスキング）
+- `src/popup/**` / `src/options/**`（UI ロジック）
+- `src/shared/**`（設定・共有型）
+- `static/**`（manifest.json、HTML、画像）
+
+例外（ビルド不要）:
+- `*.test.ts` のみの変更（テストは `npm test` で検証）
+- `CLAUDE.md` / `README.md` などのドキュメント
+- `scripts/`, `tsconfig.json`, `package.json` などビルド成果物に含まれない設定類
+
+`npm run dev` を起動中であれば watch mode が自動再ビルドするため `npm run build` は不要。それ以外のタイミングでは、検証（型チェック・テスト）の後に `npm run build` を実行し、Chrome の拡張管理画面で再読み込みを促す。
 
 ### ビルドプロセス（scripts/build.mjs）
 

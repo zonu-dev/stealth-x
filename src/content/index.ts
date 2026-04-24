@@ -6,11 +6,19 @@ import {
   normalizeSettings,
   type MaskSettings
 } from "../shared/settings";
-import { applyMasking, ensureMaskStyles, restoreMasking } from "./masking";
+import {
+  applyMasking,
+  clearMaskingArtifacts,
+  ensureMaskStyles,
+  restoreMasking
+} from "./masking";
 
 let currentSettings: MaskSettings = DEFAULT_SETTINGS;
 let flushHandle: number | null = null;
 let observerStarted = false;
+let navigationStarted = false;
+let fullRefreshQueued = false;
+let lastKnownPathname = window.location.pathname;
 
 const pendingRoots = new Set<ParentNode>();
 
@@ -22,9 +30,7 @@ function isParentNode(node: Node): node is ParentNode {
   );
 }
 
-function enqueueRoot(root: ParentNode) {
-  pendingRoots.add(root);
-
+function requestFlush() {
   if (flushHandle !== null) {
     return;
   }
@@ -34,6 +40,17 @@ function enqueueRoot(root: ParentNode) {
 
     if (!currentSettings.enabled) {
       pendingRoots.clear();
+      fullRefreshQueued = false;
+      return;
+    }
+
+    const pathname = window.location.pathname;
+
+    if (fullRefreshQueued || pathname !== lastKnownPathname) {
+      lastKnownPathname = pathname;
+      fullRefreshQueued = false;
+      pendingRoots.clear();
+      applyCurrentSettings();
       return;
     }
 
@@ -45,7 +62,25 @@ function enqueueRoot(root: ParentNode) {
   });
 }
 
+function enqueueRoot(root: ParentNode) {
+  pendingRoots.add(root);
+  requestFlush();
+}
+
+function refreshAfterNavigation(pathname = window.location.pathname) {
+  if (pathname === lastKnownPathname && !fullRefreshQueued) {
+    return;
+  }
+
+  lastKnownPathname = pathname;
+  fullRefreshQueued = true;
+  pendingRoots.clear();
+  clearMaskingArtifacts(document);
+  requestFlush();
+}
+
 function applyCurrentSettings() {
+  lastKnownPathname = window.location.pathname;
   restoreMasking(document);
 
   if (!currentSettings.enabled) {
@@ -83,9 +118,34 @@ function watchDocument() {
   });
 }
 
+function watchNavigation() {
+  if (navigationStarted) {
+    return;
+  }
+
+  navigationStarted = true;
+
+  const originalPushState = window.history.pushState.bind(window.history);
+  window.history.pushState = ((...args: Parameters<History["pushState"]>) => {
+    originalPushState(...args);
+    refreshAfterNavigation(window.location.pathname);
+  }) as History["pushState"];
+
+  const originalReplaceState = window.history.replaceState.bind(window.history);
+  window.history.replaceState = ((...args: Parameters<History["replaceState"]>) => {
+    originalReplaceState(...args);
+    refreshAfterNavigation(window.location.pathname);
+  }) as History["replaceState"];
+
+  window.addEventListener("popstate", () => {
+    refreshAfterNavigation(window.location.pathname);
+  });
+}
+
 async function initialize() {
   ensureMaskStyles(document);
   watchDocument();
+  watchNavigation();
 
   currentSettings = await loadSettings();
   applyCurrentSettings();

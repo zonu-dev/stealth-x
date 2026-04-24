@@ -2,12 +2,16 @@ import type { MaskSettings } from "../shared/settings";
 
 const STYLE_ID = "stealth-x-styles";
 const MASKED_TEXT_ATTR = "data-stealth-x-original-text";
+const CSS_TEXT_MASK_ATTR = "data-stealth-x-text-mask";
+const CSS_TEXT_REPLACEMENT_ATTR = "data-stealth-x-text-replacement";
 const BLOCK_ATTR = "data-stealth-x-block";
 const BLOCK_LABEL_ATTR = "data-stealth-x-label";
 const AVATAR_ATTR = "data-stealth-x-avatar";
 const MEDIA_ATTR = "data-stealth-x-media";
 const ORIGINAL_TITLE_ATTR = "data-stealth-x-original-title";
 const HIDDEN_CLASS = "stealth-x-hidden";
+const AVATAR_BLUR_CSS_VAR = "--stealth-x-avatar-blur";
+const AVATAR_SCALE_CSS_VAR = "--stealth-x-avatar-scale";
 
 const DISPLAY_ALIAS = "非表示";
 const USERNAME_ALIAS = "@hidden";
@@ -27,6 +31,14 @@ const BIO_SELECTORS = ['[data-testid="UserDescription"]'];
 
 const LOCATION_SELECTORS = ['[data-testid="UserLocation"]'];
 const JOIN_DATE_SELECTORS = ['[data-testid="UserJoinDate"]'];
+const WEBSITE_SELECTORS = ['[data-testid="UserUrl"]'];
+const PROFILE_VERIFICATION_SELECTORS = [
+  '[data-testid="UserName"] [data-testid="icon-verified"]',
+  '[data-testid="UserName"] svg[aria-label*="認証"]',
+  '[data-testid="UserName"] svg[aria-label*="Verified"]',
+  '[data-testid="primaryColumn"] a[href*="/i/premium_sign_up"]',
+  '[data-testid="primaryColumn"] a[href*="/i/verified"]'
+];
 
 const STAT_SELECTORS = [
   'a[href$="/followers"]:not([role="tab"])',
@@ -35,6 +47,10 @@ const STAT_SELECTORS = [
 ];
 
 const SIDEBAR_ACCOUNT_SELECTORS = ['[data-testid="SideNav_AccountSwitcher_Button"]'];
+const ACCOUNT_SWITCHER_HOVER_CARD_SELECTORS = ['[data-testid="HoverCard"]'];
+const ACCOUNT_SWITCHER_MARKER_SELECTOR = '[data-testid^="AccountSwitcher_"]';
+const ACCOUNT_SWITCHER_LOGOUT_SELECTOR = '[data-testid="AccountSwitcher_Logout_Button"]';
+const HANDLE_IN_TEXT_PATTERN = /@[A-Za-z0-9_]{1,15}/gu;
 const VERIFIED_BADGE_SELECTORS = [
   '[data-testid="icon-verified"]',
   '[data-testid="UserBadges"]',
@@ -107,6 +123,8 @@ interface CurrentAccount {
   usernameLabel: string;
 }
 
+let cachedCurrentAccount: CurrentAccount | null = null;
+
 function createStyles(avatarPlaceholderUrl: string): string {
   return `
 #${STYLE_ID} {}
@@ -161,6 +179,22 @@ function createStyles(avatarPlaceholderUrl: string): string {
   background: rgba(113, 107, 97, 0.36);
   transform: translateY(-50%);
 }
+[${CSS_TEXT_MASK_ATTR}] {
+  position: relative !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
+[${CSS_TEXT_MASK_ATTR}]::after {
+  content: attr(${CSS_TEXT_REPLACEMENT_ATTR});
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: rgb(231, 233, 234);
+  -webkit-text-fill-color: rgb(231, 233, 234);
+  white-space: pre;
+  pointer-events: none;
+}
 [${AVATAR_ATTR}="conceal"] {
   position: relative !important;
   overflow: hidden !important;
@@ -186,6 +220,19 @@ function createStyles(avatarPlaceholderUrl: string): string {
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
+}
+[${AVATAR_ATTR}="blur"] {
+  position: relative !important;
+  overflow: hidden !important;
+  border-radius: 999px !important;
+}
+[${AVATAR_ATTR}="blur"] img {
+  filter: blur(var(${AVATAR_BLUR_CSS_VAR}, 4px)) !important;
+  transform: scale(var(${AVATAR_SCALE_CSS_VAR}, 1.08)) !important;
+}
+[${AVATAR_ATTR}="blur"] [style*="background-image"] {
+  filter: blur(var(${AVATAR_BLUR_CSS_VAR}, 4px)) !important;
+  transform: scale(var(${AVATAR_SCALE_CSS_VAR}, 1.08)) !important;
 }
 [${MEDIA_ATTR}="conceal"] {
   position: relative !important;
@@ -430,14 +477,21 @@ function resolveFromProfileUrl(root: ParentNode): CurrentAccount | null {
 }
 
 function resolveCurrentAccount(root: ParentNode): CurrentAccount | null {
+  const documentRef = getDocumentNode(root);
+
   // Try sidebar account switcher (primary method)
-  let account = resolveFromSidebarButton(root);
+  let account = resolveFromSidebarButton(documentRef);
   if (account) {
+    cachedCurrentAccount = account;
     return account;
   }
 
-  // Fallback: extract from profile URL if on own profile
-  account = resolveFromProfileUrl(root);
+  if (cachedCurrentAccount) {
+    return cachedCurrentAccount;
+  }
+
+  // Subtree updates may not include the sidebar, so fall back using document state.
+  account = resolveFromProfileUrl(documentRef);
   if (account) {
     return account;
   }
@@ -507,20 +561,49 @@ function elementLinksToHandle(element: Element, handle: string): boolean {
   });
 }
 
-function articleBelongsToCurrentUser(article: Element, account: CurrentAccount): boolean {
-  const nameContainer = article.querySelector<HTMLElement>(NAME_CONTAINER_SELECTORS.join(","));
+function getArticleAuthorHandle(article: Element): string | null {
+  const avatarHandle = parseHandleFromAvatarTestId(
+    article
+      .querySelector<HTMLElement>('[data-testid="Tweet-User-Avatar"] [data-testid^="UserAvatar-Container-"]')
+      ?.getAttribute("data-testid") ?? null
+  );
 
-  if (nameContainer) {
-    if (elementLinksToHandle(nameContainer, account.handle)) {
-      return true;
-    }
-
-    return getIdentityStrings(nameContainer).some((value) => {
-      return parseHandleFromUsernameText(value) === account.handle;
-    });
+  if (avatarHandle) {
+    return avatarHandle;
   }
 
-  return elementLinksToHandle(article, account.handle);
+  const documentRef = getDocumentNode(article);
+  const baseUrl = documentRef.location?.href ?? window.location.href;
+
+  for (const container of article.querySelectorAll<HTMLElement>(NAME_CONTAINER_SELECTORS.join(","))) {
+    const directAnchorHandle = [...container.querySelectorAll<HTMLAnchorElement>("a[href]")]
+      .map((anchor) => extractHandleFromHref(anchor.getAttribute("href") ?? "", baseUrl))
+      .find(Boolean);
+
+    if (directAnchorHandle) {
+      return directAnchorHandle;
+    }
+
+    const textHandle = getIdentityStrings(container)
+      .map(parseHandleFromUsernameText)
+      .find(Boolean);
+
+    if (textHandle) {
+      return textHandle;
+    }
+  }
+
+  return null;
+}
+
+function articleBelongsToCurrentUser(article: Element, account: CurrentAccount): boolean {
+  const articleAuthorHandle = getArticleAuthorHandle(article);
+
+  if (articleAuthorHandle) {
+    return articleAuthorHandle === account.handle;
+  }
+
+  return false;
 }
 
 function userCellBelongsToCurrentUser(element: Element, account: CurrentAccount): boolean {
@@ -799,6 +882,44 @@ function wrapTextNode(
   parent.replaceChild(wrapper, textNode);
 }
 
+function maskTextNodeInPlace(
+  textNode: Text,
+  replacement: string,
+  variant: "displayName" | "username"
+) {
+  const element = textNode.parentElement;
+
+  if (
+    !element ||
+    element.closest(`[${MASKED_TEXT_ATTR}], [${CSS_TEXT_MASK_ATTR}]`) ||
+    element.closest("time") ||
+    isInsideVerifiedBadge(element)
+  ) {
+    return;
+  }
+
+  element.setAttribute(CSS_TEXT_MASK_ATTR, variant);
+  element.setAttribute("data-stealth-x-variant", variant);
+  element.setAttribute(
+    CSS_TEXT_REPLACEMENT_ATTR,
+    withPreservedWhitespace(textNode.textContent ?? "", replacement)
+  );
+}
+
+function applyIdentityTextMask(
+  textNode: Text,
+  replacement: string,
+  variant: "displayName" | "username",
+  preserveDomStructure: boolean
+) {
+  if (preserveDomStructure) {
+    maskTextNodeInPlace(textNode, replacement, variant);
+    return;
+  }
+
+  wrapTextNode(textNode, replacement, variant);
+}
+
 function concealBlock(element: Element, label: string) {
   element.setAttribute(BLOCK_ATTR, "conceal");
   element.setAttribute(BLOCK_LABEL_ATTR, label);
@@ -809,11 +930,100 @@ function concealStat(element: Element) {
   element.removeAttribute(BLOCK_LABEL_ATTR);
 }
 
-function concealAvatar(image: HTMLImageElement) {
+type AvatarMaskVariant = "conceal" | "blur";
+
+function getAvatarMaskVariant(settings: MaskSettings): AvatarMaskVariant {
+  return settings.maskAvatarBlur ? "blur" : "conceal";
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function parsePixelValue(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(value);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function resolveAvatarTargetSize(element: HTMLElement): number {
+  const rect = element.getBoundingClientRect();
+  const rectSize = Math.max(rect.width, rect.height);
+
+  if (rectSize > 0) {
+    return rectSize;
+  }
+
+  const styleWidth = parsePixelValue(element.style.width);
+  const styleHeight = parsePixelValue(element.style.height);
+  const styleSize = Math.max(styleWidth ?? 0, styleHeight ?? 0);
+
+  if (styleSize > 0) {
+    return styleSize;
+  }
+
+  const attributeWidth = parsePixelValue(element.getAttribute("width"));
+  const attributeHeight = parsePixelValue(element.getAttribute("height"));
+  const attributeSize = Math.max(attributeWidth ?? 0, attributeHeight ?? 0);
+
+  if (attributeSize > 0) {
+    return attributeSize;
+  }
+
+  const childImage = element.querySelector<HTMLImageElement>("img");
+
+  if (childImage) {
+    const childRect = childImage.getBoundingClientRect();
+    const childRectSize = Math.max(childRect.width, childRect.height);
+
+    if (childRectSize > 0) {
+      return childRectSize;
+    }
+
+    const childStyleWidth = parsePixelValue(childImage.style.width);
+    const childStyleHeight = parsePixelValue(childImage.style.height);
+    const childStyleSize = Math.max(childStyleWidth ?? 0, childStyleHeight ?? 0);
+
+    if (childStyleSize > 0) {
+      return childStyleSize;
+    }
+
+    const childAttributeSize = Math.max(childImage.width, childImage.height);
+
+    if (childAttributeSize > 0) {
+      return childAttributeSize;
+    }
+  }
+
+  return 40;
+}
+
+function applyAvatarMaskAppearance(target: HTMLElement, variant: AvatarMaskVariant) {
+  target.setAttribute(AVATAR_ATTR, variant);
+
+  if (variant !== "blur") {
+    target.style.removeProperty(AVATAR_BLUR_CSS_VAR);
+    target.style.removeProperty(AVATAR_SCALE_CSS_VAR);
+    return;
+  }
+
+  const size = resolveAvatarTargetSize(target);
+  const blur = clamp(Math.round(size * 0.075), 4, 12);
+  const scale = clamp(1 + blur / 100, 1.08, 1.12);
+
+  target.style.setProperty(AVATAR_BLUR_CSS_VAR, `${blur}px`);
+  target.style.setProperty(AVATAR_SCALE_CSS_VAR, scale.toFixed(2));
+}
+
+function concealAvatar(image: HTMLImageElement, variant: AvatarMaskVariant) {
   const avatarContainer = image.closest<HTMLElement>(AVATAR_CONTAINER_SELECTORS.join(","));
 
   if (avatarContainer) {
-    avatarContainer.setAttribute(AVATAR_ATTR, "conceal");
+    applyAvatarMaskAppearance(avatarContainer, variant);
     return;
   }
 
@@ -823,7 +1033,7 @@ function concealAvatar(image: HTMLImageElement) {
     return;
   }
 
-  wrapper.setAttribute(AVATAR_ATTR, "conceal");
+  applyAvatarMaskAppearance(wrapper, variant);
 }
 
 function concealMediaElement(element: HTMLElement) {
@@ -834,6 +1044,22 @@ function concealMediaElement(element: HTMLElement) {
 
 function hideElement(element: Element) {
   element.classList.add(HIDDEN_CLASS);
+}
+
+function getProfileVerificationTarget(element: HTMLElement): HTMLElement {
+  const premiumLink = element.closest<HTMLElement>(
+    'a[href*="/i/premium_sign_up"], a[href*="/i/verified"]'
+  );
+
+  if (premiumLink) {
+    return premiumLink;
+  }
+
+  return (
+    element.closest<HTMLElement>(
+      '[data-testid="verifiedBadgeDialogTrigger"], [data-testid="UserBadges"], [data-testid*="verifiedBadge"], [data-testid*="VerifiedBadge"]'
+    ) ?? element
+  );
 }
 
 function applyIdentityMask(
@@ -850,15 +1076,27 @@ function applyIdentityMask(
       continue;
     }
 
+    const preserveDomStructure = isProfileSummaryElement(container, account);
+
     for (const textNode of getTextNodes(container)) {
       const classification = classifyIdentityText(textNode.textContent ?? "");
 
       if (classification === "displayName" && settings.maskDisplayName) {
-        wrapTextNode(textNode, DISPLAY_ALIAS, classification);
+        applyIdentityTextMask(
+          textNode,
+          DISPLAY_ALIAS,
+          classification,
+          preserveDomStructure
+        );
       }
 
       if (classification === "username" && settings.maskUsername) {
-        wrapTextNode(textNode, USERNAME_ALIAS, classification);
+        applyIdentityTextMask(
+          textNode,
+          USERNAME_ALIAS,
+          classification,
+          preserveDomStructure
+        );
       }
     }
   }
@@ -869,7 +1107,10 @@ function applyProfileHeaderMask(
   settings: MaskSettings,
   account: CurrentAccount
 ) {
-  if (!settings.maskDisplayName || !isOwnProfileRoute(root, account)) {
+  if (
+    (!settings.maskDisplayName && !settings.maskUsername) ||
+    !isOwnProfileRoute(root, account)
+  ) {
     return;
   }
 
@@ -885,7 +1126,7 @@ function applyProfileHeaderMask(
         settings.maskDisplayName &&
         !displayNameMasked
       ) {
-        wrapTextNode(textNode, DISPLAY_ALIAS, "displayName");
+        maskTextNodeInPlace(textNode, DISPLAY_ALIAS, "displayName");
 
         displayNameMasked = true;
         continue;
@@ -896,7 +1137,7 @@ function applyProfileHeaderMask(
         settings.maskUsername &&
         !usernameMasked
       ) {
-        wrapTextNode(textNode, USERNAME_ALIAS, "username");
+        maskTextNodeInPlace(textNode, USERNAME_ALIAS, "username");
 
         usernameMasked = true;
       }
@@ -919,7 +1160,7 @@ function applyProfileDisplayNameFallbackMask(
         continue;
       }
 
-      wrapTextNode(textNode, DISPLAY_ALIAS, "displayName");
+      maskTextNodeInPlace(textNode, DISPLAY_ALIAS, "displayName");
     }
   }
 }
@@ -941,7 +1182,7 @@ function applyProfileUsernameFallbackMask(
         continue;
       }
 
-      wrapTextNode(textNode, USERNAME_ALIAS, "username");
+      maskTextNodeInPlace(textNode, USERNAME_ALIAS, "username");
     }
   }
 }
@@ -969,6 +1210,8 @@ function applyHomeComposerAvatarMask(root: ParentNode, settings: MaskSettings) {
     return;
   }
 
+  const variant = getAvatarMaskVariant(settings);
+
   for (const textarea of collectMatches<HTMLElement>(root, COMPOSER_TEXTAREA_SELECTORS)) {
     const target = findHomeComposerAvatarTarget(textarea);
 
@@ -976,7 +1219,7 @@ function applyHomeComposerAvatarMask(root: ParentNode, settings: MaskSettings) {
       continue;
     }
 
-    target.setAttribute(AVATAR_ATTR, "conceal");
+    applyAvatarMaskAppearance(target, variant);
   }
 }
 
@@ -991,6 +1234,40 @@ function applyBioMask(root: ParentNode, settings: MaskSettings, account: Current
     }
 
     concealBlock(element, "プロフィール非表示");
+  }
+}
+
+function applyWebsiteMask(root: ParentNode, settings: MaskSettings, account: CurrentAccount) {
+  if (!settings.maskWebsite) {
+    return;
+  }
+
+  for (const element of collectMatches<HTMLElement>(root, WEBSITE_SELECTORS)) {
+    if (!elementBelongsToCurrentUser(element, account)) {
+      continue;
+    }
+
+    concealBlock(element, "ウェブサイト非表示");
+  }
+}
+
+function applyVerifiedBadgeMask(
+  root: ParentNode,
+  settings: MaskSettings,
+  account: CurrentAccount
+) {
+  if (!settings.maskVerifiedBadge) {
+    return;
+  }
+
+  for (const element of collectMatches<HTMLElement>(root, PROFILE_VERIFICATION_SELECTORS)) {
+    const target = getProfileVerificationTarget(element);
+
+    if (!isProfileSummaryElement(target, account)) {
+      continue;
+    }
+
+    hideElement(target);
   }
 }
 
@@ -1081,12 +1358,14 @@ function applyAvatarMask(root: ParentNode, settings: MaskSettings, account: Curr
     return;
   }
 
+  const variant = getAvatarMaskVariant(settings);
+
   for (const container of collectMatches<HTMLElement>(root, AVATAR_CONTAINER_SELECTORS)) {
     if (parseHandleFromAvatarTestId(container.getAttribute("data-testid")) !== account.handle) {
       continue;
     }
 
-    container.setAttribute(AVATAR_ATTR, "conceal");
+    applyAvatarMaskAppearance(container, variant);
   }
 
   for (const image of collectMatches<HTMLImageElement>(root, AVATAR_IMAGE_SELECTORS)) {
@@ -1094,7 +1373,7 @@ function applyAvatarMask(root: ParentNode, settings: MaskSettings, account: Curr
       continue;
     }
 
-    concealAvatar(image);
+    concealAvatar(image, variant);
   }
 }
 
@@ -1141,6 +1420,79 @@ function applyUserCellIdentityMask(
 
       if (classification === "username" && settings.maskUsername) {
         wrapTextNode(textNode, USERNAME_ALIAS, classification);
+      }
+    }
+  }
+}
+
+function isAccountSwitcherHoverCard(hoverCard: Element): boolean {
+  return hoverCard.querySelector(ACCOUNT_SWITCHER_MARKER_SELECTOR) !== null;
+}
+
+// ログアウトボタン等、テキスト中に混在する @handle だけを置換する。
+// wrapTextNode はテキスト全体を置き換えてしまうため別経路が必要。
+function maskHandleOccurrencesInText(textNode: Text, replacement: string) {
+  const parent = textNode.parentNode;
+
+  if (!parent || textNode.parentElement?.closest(`[${MASKED_TEXT_ATTR}]`)) {
+    return;
+  }
+
+  const original = textNode.textContent ?? "";
+  const masked = original.replace(HANDLE_IN_TEXT_PATTERN, replacement);
+
+  if (masked === original) {
+    return;
+  }
+
+  const wrapper = (textNode.ownerDocument ?? document).createElement("span");
+
+  wrapper.setAttribute(MASKED_TEXT_ATTR, original);
+  wrapper.setAttribute("data-stealth-x-variant", "username");
+  wrapper.textContent = masked;
+
+  parent.replaceChild(wrapper, textNode);
+}
+
+function applyAccountSwitcherMask(root: ParentNode, settings: MaskSettings) {
+  if (!settings.maskDisplayName && !settings.maskUsername && !settings.maskAvatar) {
+    return;
+  }
+
+  for (const hoverCard of collectMatches<HTMLElement>(root, ACCOUNT_SWITCHER_HOVER_CARD_SELECTORS)) {
+    if (!isAccountSwitcherHoverCard(hoverCard)) {
+      continue;
+    }
+
+    if (settings.maskDisplayName || settings.maskUsername) {
+      for (const userCell of hoverCard.querySelectorAll<HTMLElement>('[data-testid="UserCell"]')) {
+        for (const textNode of getTextNodes(userCell)) {
+          const classification = classifyIdentityText(textNode.textContent ?? "");
+
+          if (classification === "displayName" && settings.maskDisplayName) {
+            wrapTextNode(textNode, DISPLAY_ALIAS, classification);
+          }
+
+          if (classification === "username" && settings.maskUsername) {
+            wrapTextNode(textNode, USERNAME_ALIAS, classification);
+          }
+        }
+      }
+    }
+
+    if (settings.maskAvatar) {
+      const variant = getAvatarMaskVariant(settings);
+
+      for (const container of hoverCard.querySelectorAll<HTMLElement>(AVATAR_CONTAINER_SELECTORS.join(","))) {
+        applyAvatarMaskAppearance(container, variant);
+      }
+    }
+
+    if (settings.maskUsername) {
+      for (const logoutButton of hoverCard.querySelectorAll<HTMLElement>(ACCOUNT_SWITCHER_LOGOUT_SELECTOR)) {
+        for (const textNode of getTextNodes(logoutButton)) {
+          maskHandleOccurrencesInText(textNode, USERNAME_ALIAS);
+        }
       }
     }
   }
@@ -1221,30 +1573,33 @@ export function ensureMaskStyles(documentRef: Document = document) {
   }
 }
 
-export function restoreMasking(root: ParentNode = document) {
-  const documentRef = getDocumentNode(root);
-  const originalTitle = documentRef.documentElement.getAttribute(ORIGINAL_TITLE_ATTR);
-
-  if (originalTitle !== null) {
-    documentRef.title = originalTitle;
-    documentRef.documentElement.removeAttribute(ORIGINAL_TITLE_ATTR);
-  }
-
+function unwrapMaskedText(
+  root: ParentNode,
+  resolveText: (element: HTMLElement) => string | null
+) {
   collectMatches<HTMLElement>(root, [`[${MASKED_TEXT_ATTR}]`]).forEach((element) => {
-    const original = element.getAttribute(MASKED_TEXT_ATTR);
+    const nextText = resolveText(element);
 
-    if (original === null || !element.parentNode) {
+    if (nextText === null || !element.parentNode) {
       return;
     }
 
     element.parentNode.replaceChild(
-      (element.ownerDocument ?? document).createTextNode(original),
+      (element.ownerDocument ?? document).createTextNode(nextText),
       element
     );
   });
+}
 
+function removeMaskDecorators(root: ParentNode) {
   collectMatches<HTMLElement>(root, [`.${HIDDEN_CLASS}`]).forEach((element) => {
     element.classList.remove(HIDDEN_CLASS);
+  });
+
+  collectMatches<HTMLElement>(root, [`[${CSS_TEXT_MASK_ATTR}]`]).forEach((element) => {
+    element.removeAttribute(CSS_TEXT_MASK_ATTR);
+    element.removeAttribute(CSS_TEXT_REPLACEMENT_ATTR);
+    element.removeAttribute("data-stealth-x-variant");
   });
 
   collectMatches<HTMLElement>(root, [`[${BLOCK_ATTR}]`]).forEach((element) => {
@@ -1254,11 +1609,41 @@ export function restoreMasking(root: ParentNode = document) {
 
   collectMatches<HTMLElement>(root, [`[${AVATAR_ATTR}]`]).forEach((element) => {
     element.removeAttribute(AVATAR_ATTR);
+    element.style.removeProperty(AVATAR_BLUR_CSS_VAR);
+    element.style.removeProperty(AVATAR_SCALE_CSS_VAR);
   });
 
   collectMatches<HTMLElement>(root, [`[${MEDIA_ATTR}]`]).forEach((element) => {
     element.removeAttribute(MEDIA_ATTR);
   });
+}
+
+export function clearMaskingArtifacts(root: ParentNode = document) {
+  const documentRef = getDocumentNode(root);
+
+  documentRef.documentElement.removeAttribute(ORIGINAL_TITLE_ATTR);
+
+  unwrapMaskedText(root, (element) => {
+    return element.textContent;
+  });
+
+  removeMaskDecorators(root);
+}
+
+export function restoreMasking(root: ParentNode = document) {
+  const documentRef = getDocumentNode(root);
+  const originalTitle = documentRef.documentElement.getAttribute(ORIGINAL_TITLE_ATTR);
+
+  if (originalTitle !== null) {
+    documentRef.title = originalTitle;
+    documentRef.documentElement.removeAttribute(ORIGINAL_TITLE_ATTR);
+  }
+
+  unwrapMaskedText(root, (element) => {
+    return element.getAttribute(MASKED_TEXT_ATTR);
+  });
+
+  removeMaskDecorators(root);
 }
 
 export function applyMasking(root: ParentNode, settings: MaskSettings) {
@@ -1280,11 +1665,14 @@ export function applyMasking(root: ParentNode, settings: MaskSettings) {
   applyHomeComposerAvatarMask(root, settings);
   applyAvatarMask(root, settings, account);
   applyBioMask(root, settings, account);
+  applyVerifiedBadgeMask(root, settings, account);
+  applyWebsiteMask(root, settings, account);
   applyLocationMask(root, settings, account);
   applyJoinDateMask(root, settings, account);
   applyPostCountMask(root, settings, account);
   applyStatsMask(root, settings, account);
   applySidebarMask(root, settings);
   applyUserCellIdentityMask(root, settings, account);
+  applyAccountSwitcherMask(root, settings);
   applyDocumentTitleMask(root, settings, account);
 }
