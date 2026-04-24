@@ -1525,36 +1525,30 @@ function applyDocumentTitleMask(
   const host = documentRef.documentElement;
   const currentTitle = documentRef.title;
   const storedOriginalTitle = host.getAttribute(ORIGINAL_TITLE_ATTR);
-  const isProfileRoute = isOwnProfileRoute(root, account);
   const currentTitleIsMasked =
     currentTitle.includes(DISPLAY_ALIAS) || currentTitle.includes(USERNAME_ALIAS);
 
-  if (!isProfileRoute) {
-    if (storedOriginalTitle && currentTitleIsMasked) {
-      documentRef.title = storedOriginalTitle;
+  if (currentTitleIsMasked) {
+    if (storedOriginalTitle) {
+      const remaskedTitle = maskTitleText(storedOriginalTitle, settings, account);
+
+      if (remaskedTitle !== currentTitle) {
+        documentRef.title = remaskedTitle;
+      }
     }
 
+    return;
+  }
+
+  const maskedTitle = maskTitleText(currentTitle, settings, account);
+
+  if (maskedTitle === currentTitle) {
     host.removeAttribute(ORIGINAL_TITLE_ATTR);
     return;
   }
 
-  let originalTitle = storedOriginalTitle ?? currentTitle;
-
-  if (storedOriginalTitle) {
-    const maskedStoredTitle = maskTitleText(storedOriginalTitle, settings, account);
-
-    if (currentTitle !== maskedStoredTitle && !currentTitleIsMasked) {
-      originalTitle = currentTitle;
-    }
-  }
-
-  host.setAttribute(ORIGINAL_TITLE_ATTR, originalTitle);
-
-  const maskedTitle = maskTitleText(originalTitle, settings, account);
-
-  if (maskedTitle !== currentTitle) {
-    documentRef.title = maskedTitle;
-  }
+  host.setAttribute(ORIGINAL_TITLE_ATTR, currentTitle);
+  documentRef.title = maskedTitle;
 }
 
 export function ensureMaskStyles(documentRef: Document = document) {

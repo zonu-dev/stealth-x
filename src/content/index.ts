@@ -100,8 +100,12 @@ function watchDocument() {
 
   const observer = new MutationObserver((records) => {
     for (const record of records) {
-      if (isParentNode(record.target)) {
-        enqueueRoot(record.target);
+      const targetRoot = isParentNode(record.target)
+        ? record.target
+        : record.target.parentNode;
+
+      if (targetRoot && isParentNode(targetRoot)) {
+        enqueueRoot(targetRoot);
       }
 
       record.addedNodes.forEach((node) => {
@@ -114,6 +118,7 @@ function watchDocument() {
 
   observer.observe(document.documentElement ?? document, {
     childList: true,
+    characterData: true,
     subtree: true
   });
 }

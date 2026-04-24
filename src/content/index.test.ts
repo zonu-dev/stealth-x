@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const defaultSettings = vi.hoisted(() => {
   return {
@@ -43,6 +43,13 @@ vi.mock("../shared/settings", () => settingsMocks);
 
 describe("content navigation handling", () => {
   let rafQueue: FrameRequestCallback[];
+  let originalMutationObserver: typeof MutationObserver;
+  let mutationObserverInstances: Array<{
+    callback: MutationCallback;
+    disconnect: ReturnType<typeof vi.fn>;
+    observe: ReturnType<typeof vi.fn>;
+    takeRecords: ReturnType<typeof vi.fn>;
+  }>;
 
   beforeEach(() => {
     vi.resetModules();
@@ -61,6 +68,23 @@ describe("content navigation handling", () => {
 
     window.cancelAnimationFrame = vi.fn();
 
+    originalMutationObserver = globalThis.MutationObserver;
+    mutationObserverInstances = [];
+
+    class MockMutationObserver implements MutationObserver {
+      callback: MutationCallback;
+      disconnect = vi.fn();
+      observe = vi.fn();
+      takeRecords = vi.fn(() => []);
+
+      constructor(callback: MutationCallback) {
+        this.callback = callback;
+        mutationObserverInstances.push(this);
+      }
+    }
+
+    globalThis.MutationObserver = MockMutationObserver;
+
     Object.assign(globalThis, {
       chrome: {
         storage: {
@@ -70,6 +94,10 @@ describe("content navigation handling", () => {
         }
       }
     });
+  });
+
+  afterEach(() => {
+    globalThis.MutationObserver = originalMutationObserver;
   });
 
   it("clears masking artifacts before reapplying masking on SPA profile navigation", async () => {
@@ -99,5 +127,48 @@ describe("content navigation handling", () => {
     expect(maskingMocks.restoreMasking).toHaveBeenCalledTimes(1);
     expect(maskingMocks.applyMasking).toHaveBeenCalledTimes(1);
     expect(maskingMocks.applyMasking).toHaveBeenLastCalledWith(document, defaultSettings);
+  });
+
+  it("observes document title text changes", async () => {
+    await import("./index");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const [observer] = mutationObserverInstances;
+
+    expect(observer.observe).toHaveBeenCalledWith(document.documentElement, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+
+    maskingMocks.applyMasking.mockClear();
+
+    document.title = "Jane Doe (@janedoe) さん / X";
+    const titleElement = document.querySelector("title");
+    const titleText = titleElement?.firstChild;
+
+    expect(titleElement).not.toBeNull();
+    expect(titleText).not.toBeNull();
+
+    observer.callback(
+      [
+        {
+          addedNodes: [],
+          target: titleText,
+          type: "characterData"
+        } as unknown as MutationRecord
+      ],
+      observer
+    );
+
+    const [flush] = rafQueue;
+
+    expect(flush).toBeTypeOf("function");
+
+    flush(16);
+
+    expect(maskingMocks.applyMasking).toHaveBeenCalledTimes(1);
+    expect(maskingMocks.applyMasking).toHaveBeenLastCalledWith(titleElement, defaultSettings);
   });
 });

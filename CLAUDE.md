@@ -11,7 +11,7 @@
 - 権限最小化（storage と x.com/twitter.com の content script のみ）
 - 認証情報・Cookie を扱わない設計
 
-**バージョン:** 1.1.0
+**バージョン:** 1.1.1
 **ライセンス:** MIT
 
 ## Code Style

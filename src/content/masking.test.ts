@@ -1089,4 +1089,47 @@ describe("applyMasking", () => {
 
     expect(document.title).toBe("Jane Doe (@janedoe) / X");
   });
+
+  it("replaces the current user's title outside profile routes", () => {
+    const document = setupDocument(
+      "",
+      "https://x.com/home",
+      "Jane Doe (@janedoe) さん / X"
+    );
+
+    applyMasking(document, DEFAULT_SETTINGS);
+
+    expect(document.title).toBe("非表示 (@hidden) さん / X");
+
+    restoreMasking(document);
+
+    expect(document.title).toBe("Jane Doe (@janedoe) さん / X");
+  });
+
+  it("replaces a leaked home title after profile navigation", () => {
+    const document = setupDocument(
+      `
+        <div data-testid="primaryColumn">
+          <header>
+            <div data-testid="UserName">
+              <span>Jane Doe</span>
+              <span>@janedoe</span>
+            </div>
+          </header>
+        </div>
+      `,
+      "https://x.com/janedoe",
+      "Jane Doe (@janedoe) / X"
+    );
+
+    applyMasking(document, DEFAULT_SETTINGS);
+    expect(document.title).toBe("非表示 (@hidden) / X");
+
+    document.defaultView?.history.replaceState({}, "", "/home");
+    document.title = "Jane Doe (@janedoe) さん / X";
+
+    applyMasking(document, DEFAULT_SETTINGS);
+
+    expect(document.title).toBe("非表示 (@hidden) さん / X");
+  });
 });
