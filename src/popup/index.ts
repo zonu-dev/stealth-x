@@ -71,6 +71,7 @@ async function initializePopup() {
     maskPostCount: assertElement(
       document.querySelector<HTMLInputElement>("#maskPostCount")
     ),
+    maskPosts: assertElement(document.querySelector<HTMLInputElement>("#maskPosts")),
     maskStats: assertElement(document.querySelector<HTMLInputElement>("#maskStats")),
     maskUsername: assertElement(document.querySelector<HTMLInputElement>("#maskUsername"))
   };
@@ -97,6 +98,7 @@ async function initializePopup() {
       settings.maskJoinDate === DEFAULT_SETTINGS.maskJoinDate &&
       settings.maskLocation === DEFAULT_SETTINGS.maskLocation &&
       settings.maskPostCount === DEFAULT_SETTINGS.maskPostCount &&
+      settings.maskPosts === DEFAULT_SETTINGS.maskPosts &&
       settings.maskStats === DEFAULT_SETTINGS.maskStats &&
       settings.maskUsername === DEFAULT_SETTINGS.maskUsername &&
       settings.maskVerifiedBadge === DEFAULT_SETTINGS.maskVerifiedBadge &&
@@ -128,6 +130,7 @@ async function initializePopup() {
     detailInputs.maskJoinDate.checked = settings.maskJoinDate;
     detailInputs.maskLocation.checked = settings.maskLocation;
     detailInputs.maskPostCount.checked = settings.maskPostCount;
+    detailInputs.maskPosts.checked = settings.maskPosts;
     detailInputs.maskStats.checked = settings.maskStats;
     detailInputs.maskUsername.checked = settings.maskUsername;
     detailInputs.maskVerifiedBadge.checked = settings.maskVerifiedBadge;
@@ -147,6 +150,7 @@ async function initializePopup() {
       maskJoinDate: detailInputs.maskJoinDate.checked,
       maskLocation: detailInputs.maskLocation.checked,
       maskPostCount: detailInputs.maskPostCount.checked,
+      maskPosts: detailInputs.maskPosts.checked,
       maskStats: detailInputs.maskStats.checked,
       maskUsername: detailInputs.maskUsername.checked,
       maskVerifiedBadge: detailInputs.maskVerifiedBadge.checked,

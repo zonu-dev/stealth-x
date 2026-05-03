@@ -12,6 +12,7 @@ const defaultSettings = vi.hoisted(() => {
     maskJoinDate: true,
     maskLocation: true,
     maskPostCount: true,
+    maskPosts: true,
     maskStats: true,
     maskUsername: true,
     maskVerifiedBadge: true,

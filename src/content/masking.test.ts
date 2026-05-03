@@ -11,6 +11,7 @@ import {
 
 const CSS_TEXT_MASK_SELECTOR = "[data-stealth-x-text-mask]";
 const CSS_TEXT_REPLACEMENT_ATTR = "data-stealth-x-text-replacement";
+const POST_MASK_SELECTOR = '[data-stealth-x-post="conceal"]';
 
 const CURRENT_ACCOUNT_SIDEBAR = `
   <button data-testid="SideNav_AccountSwitcher_Button">
@@ -57,7 +58,7 @@ describe("applyMasking", () => {
       </article>
     `);
 
-    applyMasking(document, DEFAULT_SETTINGS);
+    applyMasking(document, { ...DEFAULT_SETTINGS, maskPosts: false });
 
     const selfPost = document.querySelector("#self-post");
     const otherPost = document.querySelector("#other-post");
@@ -99,13 +100,106 @@ describe("applyMasking", () => {
       </article>
     `);
 
-    applyMasking(document, DEFAULT_SETTINGS);
+    applyMasking(document, { ...DEFAULT_SETTINGS, maskPosts: false });
 
     const selfPost = document.querySelector("#self-post-with-leading-other-name");
 
     expect(selfPost?.textContent).toContain("非表示");
     expect(selfPost?.textContent).toContain("@hidden");
     expect(selfPost?.textContent).not.toContain("Jane Doe");
+  });
+
+  it("conceals the current user's whole post by default", () => {
+    const document = setupDocument(`
+      <article id="self-post">
+        <div data-testid="Tweet-User-Avatar">
+          <div data-testid="UserAvatar-Container-janedoe"><img src="self.png" alt="Jane Doe" /></div>
+        </div>
+        <div data-testid="User-Name">
+          <a href="/janedoe"><span>Jane Doe</span></a>
+          <a href="/janedoe"><span>@janedoe</span></a>
+          <a href="/janedoe/status/1"><time>2h</time></a>
+        </div>
+        <div data-testid="tweetText">秘密にしたい投稿本文</div>
+        <img src="https://pbs.twimg.com/media/self.jpg" alt="添付画像" />
+        <button type="button">いいね</button>
+      </article>
+      <article id="other-post">
+        <div data-testid="Tweet-User-Avatar">
+          <div data-testid="UserAvatar-Container-otheruser"><img src="other.png" alt="Other User" /></div>
+        </div>
+        <div data-testid="User-Name">
+          <a href="/otheruser"><span>Other User</span></a>
+          <a href="/otheruser"><span>@otheruser</span></a>
+        </div>
+      </article>
+    `);
+
+    applyMasking(document, DEFAULT_SETTINGS);
+
+    const selfPost = document.querySelector("#self-post");
+    const otherPost = document.querySelector("#other-post");
+    const selfAvatar = document.querySelector(
+      '#self-post [data-testid="UserAvatar-Container-janedoe"]'
+    );
+
+    expect(selfPost?.matches(POST_MASK_SELECTOR)).toBe(true);
+    expect(selfPost?.getAttribute("data-stealth-x-post-label")).toBe("クリックで表示");
+    expect(selfPost?.textContent).toContain("Jane Doe");
+    expect(selfPost?.textContent).toContain("@janedoe");
+    expect(selfPost?.textContent).toContain("秘密にしたい投稿本文");
+    expect(selfPost?.textContent).not.toContain("非表示");
+    expect(selfPost?.textContent).not.toContain("@hidden");
+    expect(selfAvatar?.hasAttribute("data-stealth-x-avatar")).toBe(false);
+    expect(otherPost?.matches(POST_MASK_SELECTOR)).toBe(false);
+  });
+
+  it("does not conceal whole posts when post masking is disabled", () => {
+    const document = setupDocument(`
+      <article id="self-post">
+        <div data-testid="Tweet-User-Avatar">
+          <div data-testid="UserAvatar-Container-janedoe"><img src="self.png" alt="Jane Doe" /></div>
+        </div>
+        <div data-testid="User-Name">
+          <a href="/janedoe"><span>Jane Doe</span></a>
+          <a href="/janedoe"><span>@janedoe</span></a>
+        </div>
+      </article>
+    `);
+
+    applyMasking(document, { ...DEFAULT_SETTINGS, maskPosts: false });
+
+    const selfPost = document.querySelector("#self-post");
+
+    expect(selfPost?.matches(POST_MASK_SELECTOR)).toBe(false);
+    expect(selfPost?.textContent).toContain("非表示");
+    expect(selfPost?.textContent).toContain("@hidden");
+  });
+
+  it("blocks click navigation while a concealed post is being revealed", () => {
+    const document = setupDocument(`
+      <article id="self-post">
+        <div data-testid="Tweet-User-Avatar">
+          <div data-testid="UserAvatar-Container-janedoe"><img src="self.png" alt="Jane Doe" /></div>
+        </div>
+        <div data-testid="User-Name">
+          <a href="/janedoe"><span>Jane Doe</span></a>
+          <a href="/janedoe"><span>@janedoe</span></a>
+        </div>
+        <a id="status-link" href="/janedoe/status/1">投稿を開く</a>
+      </article>
+    `);
+
+    applyMasking(document, DEFAULT_SETTINGS);
+
+    const link = document.querySelector("#status-link");
+    const event = new (document.defaultView ?? window).MouseEvent("click", {
+      bubbles: true,
+      cancelable: true
+    });
+
+    expect(link?.dispatchEvent(event)).toBe(false);
+    expect(event.defaultPrevented).toBe(true);
   });
 
   it("does not mask another user's post just because the article contains the current user's identity", () => {
@@ -986,7 +1080,11 @@ describe("applyMasking", () => {
       </article>
     `);
 
-    applyMasking(document, { ...DEFAULT_SETTINGS, maskAvatarBlur: true });
+    applyMasking(document, {
+      ...DEFAULT_SETTINGS,
+      maskAvatarBlur: true,
+      maskPosts: false
+    });
 
     const selfAvatar = document.querySelector<HTMLElement>(
       '#self-post [data-testid="Tweet-User-Avatar"]'
@@ -1029,7 +1127,11 @@ describe("applyMasking", () => {
       "https://x.com/janedoe"
     );
 
-    applyMasking(document, { ...DEFAULT_SETTINGS, maskAvatarBlur: true });
+    applyMasking(document, {
+      ...DEFAULT_SETTINGS,
+      maskAvatarBlur: true,
+      maskPosts: false
+    });
 
     const avatars = document.querySelectorAll<HTMLElement>(
       '[data-testid="UserAvatar-Container-janedoe"]'

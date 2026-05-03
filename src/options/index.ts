@@ -47,6 +47,9 @@ function readForm(): MaskSettings {
     maskPostCount: assertElement(
       document.querySelector<HTMLInputElement>("#maskPostCount")
     ).checked,
+    maskPosts: assertElement(
+      document.querySelector<HTMLInputElement>("#maskPosts")
+    ).checked,
     maskStats: assertElement(
       document.querySelector<HTMLInputElement>("#maskStats")
     ).checked,
@@ -80,6 +83,8 @@ function writeForm(settings: MaskSettings) {
     settings.maskLocation;
   assertElement(document.querySelector<HTMLInputElement>("#maskPostCount")).checked =
     settings.maskPostCount;
+  assertElement(document.querySelector<HTMLInputElement>("#maskPosts")).checked =
+    settings.maskPosts;
   assertElement(document.querySelector<HTMLInputElement>("#maskStats")).checked =
     settings.maskStats;
   assertElement(document.querySelector<HTMLInputElement>("#maskUsername")).checked =

@@ -13,6 +13,7 @@ export interface MaskSettings {
   maskBio: boolean;
   maskVerifiedBadge: boolean;
   maskWebsite: boolean;
+  maskPosts: boolean;
   maskStats: boolean;
   maskLocation: boolean;
   maskJoinDate: boolean;
@@ -30,6 +31,7 @@ export const DEFAULT_SETTINGS: MaskSettings = {
   maskJoinDate: true,
   maskLocation: true,
   maskPostCount: true,
+  maskPosts: true,
   maskStats: true,
   maskUsername: true,
   maskVerifiedBadge: true,

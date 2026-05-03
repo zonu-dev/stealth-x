@@ -8,6 +8,8 @@ const BLOCK_ATTR = "data-stealth-x-block";
 const BLOCK_LABEL_ATTR = "data-stealth-x-label";
 const AVATAR_ATTR = "data-stealth-x-avatar";
 const MEDIA_ATTR = "data-stealth-x-media";
+const POST_ATTR = "data-stealth-x-post";
+const POST_LABEL_ATTR = "data-stealth-x-post-label";
 const ORIGINAL_TITLE_ATTR = "data-stealth-x-original-title";
 const HIDDEN_CLASS = "stealth-x-hidden";
 const AVATAR_BLUR_CSS_VAR = "--stealth-x-avatar-blur";
@@ -15,6 +17,7 @@ const AVATAR_SCALE_CSS_VAR = "--stealth-x-avatar-scale";
 
 const DISPLAY_ALIAS = "非表示";
 const USERNAME_ALIAS = "@hidden";
+const POST_REVEAL_LABEL = "クリックで表示";
 const PROFILE_PRIMARY_COLUMN_SELECTOR = '[data-testid="primaryColumn"]';
 
 const NAME_CONTAINER_SELECTORS = [
@@ -124,6 +127,7 @@ interface CurrentAccount {
 }
 
 let cachedCurrentAccount: CurrentAccount | null = null;
+const postClickGuardDocuments = new WeakSet<Document>();
 
 function createStyles(avatarPlaceholderUrl: string): string {
   return `
@@ -250,6 +254,49 @@ function createStyles(avatarPlaceholderUrl: string): string {
     linear-gradient(135deg, rgba(110, 122, 144, 0.88), rgba(68, 76, 90, 0.94));
   background-size: 32px 32px, auto;
 }
+article[${POST_ATTR}="conceal"] {
+  position: relative !important;
+  cursor: pointer !important;
+}
+article[${POST_ATTR}="conceal"] > * {
+  visibility: hidden !important;
+}
+article[${POST_ATTR}="conceal"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2147483646;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(113, 118, 123, 0.12) 0 10px,
+      rgba(113, 118, 123, 0.2) 10px 20px
+    );
+}
+article[${POST_ATTR}="conceal"]::after {
+  content: attr(${POST_LABEL_ATTR});
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 2147483647;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(15, 20, 25, 0.94);
+  color: rgb(255, 255, 255);
+  font: 700 14px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  white-space: nowrap;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+}
+article[${POST_ATTR}="conceal"]:active > * {
+  visibility: visible !important;
+}
+article[${POST_ATTR}="conceal"]:active::before,
+article[${POST_ATTR}="conceal"]:active::after {
+  opacity: 0;
+}
 `;
 }
 
@@ -302,6 +349,24 @@ function collectMatches<T extends Element>(
   }
 
   return [...matches];
+}
+
+function collectArticleCandidates(root: ParentNode): HTMLElement[] {
+  const articles = new Set<HTMLElement>(collectMatches<HTMLElement>(root, ["article"]));
+
+  if (isElement(root)) {
+    const ancestorArticle = root.closest<HTMLElement>("article");
+
+    if (ancestorArticle) {
+      articles.add(ancestorArticle);
+    }
+  }
+
+  return [...articles];
+}
+
+function isInsideConcealedPost(element: Element): boolean {
+  return element.closest(`article[${POST_ATTR}="conceal"]`) !== null;
 }
 
 function getTextNodes(root: Node): Text[] {
@@ -626,6 +691,10 @@ function isProfileSummaryElement(element: Element, account: CurrentAccount): boo
 }
 
 function elementBelongsToCurrentUser(element: Element, account: CurrentAccount): boolean {
+  if (isInsideConcealedPost(element)) {
+    return false;
+  }
+
   // Skip elements inside quoted tweets to avoid masking other users' info in quotes
   if (isInsideQuotedTweet(element)) {
     return false;
@@ -925,6 +994,11 @@ function concealBlock(element: Element, label: string) {
   element.setAttribute(BLOCK_LABEL_ATTR, label);
 }
 
+function concealPost(article: HTMLElement) {
+  article.setAttribute(POST_ATTR, "conceal");
+  article.setAttribute(POST_LABEL_ATTR, POST_REVEAL_LABEL);
+}
+
 function concealStat(element: Element) {
   element.setAttribute(BLOCK_ATTR, "stat");
   element.removeAttribute(BLOCK_LABEL_ATTR);
@@ -1062,6 +1136,20 @@ function getProfileVerificationTarget(element: HTMLElement): HTMLElement {
   );
 }
 
+function applyPostMask(root: ParentNode, settings: MaskSettings, account: CurrentAccount) {
+  if (!settings.maskPosts) {
+    return;
+  }
+
+  for (const article of collectArticleCandidates(root)) {
+    if (!articleBelongsToCurrentUser(article, account)) {
+      continue;
+    }
+
+    concealPost(article);
+  }
+}
+
 function applyIdentityMask(
   root: ParentNode,
   settings: MaskSettings,
@@ -1176,6 +1264,10 @@ function applyProfileUsernameFallbackMask(
 
   for (const primaryColumn of collectMatches<HTMLElement>(root, [PROFILE_PRIMARY_COLUMN_SELECTOR])) {
     for (const textNode of getTextNodes(primaryColumn)) {
+      if (textNode.parentElement && isInsideConcealedPost(textNode.parentElement)) {
+        continue;
+      }
+
       const value = textNode.textContent?.trim() ?? "";
 
       if (value !== account.usernameLabel) {
@@ -1361,6 +1453,10 @@ function applyAvatarMask(root: ParentNode, settings: MaskSettings, account: Curr
   const variant = getAvatarMaskVariant(settings);
 
   for (const container of collectMatches<HTMLElement>(root, AVATAR_CONTAINER_SELECTORS)) {
+    if (isInsideConcealedPost(container)) {
+      continue;
+    }
+
     if (parseHandleFromAvatarTestId(container.getAttribute("data-testid")) !== account.handle) {
       continue;
     }
@@ -1407,6 +1503,10 @@ function applyUserCellIdentityMask(
   }
 
   for (const userCell of collectMatches<HTMLElement>(root, ['[data-testid="UserCell"]'])) {
+    if (isInsideConcealedPost(userCell)) {
+      continue;
+    }
+
     if (!userCellBelongsToCurrentUser(userCell, account)) {
       continue;
     }
@@ -1551,7 +1651,34 @@ function applyDocumentTitleMask(
   documentRef.title = maskedTitle;
 }
 
+function preventMaskedPostClick(event: MouseEvent) {
+  const target = event.target;
+
+  if (!target || typeof (target as Element).closest !== "function") {
+    return;
+  }
+
+  if (!(target as Element).closest(`article[${POST_ATTR}="conceal"]`)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function ensurePostClickGuard(documentRef: Document) {
+  if (postClickGuardDocuments.has(documentRef)) {
+    return;
+  }
+
+  postClickGuardDocuments.add(documentRef);
+  documentRef.addEventListener("click", preventMaskedPostClick, true);
+  documentRef.addEventListener("auxclick", preventMaskedPostClick, true);
+}
+
 export function ensureMaskStyles(documentRef: Document = document) {
+  ensurePostClickGuard(documentRef);
+
   if (documentRef.getElementById(STYLE_ID)) {
     return;
   }
@@ -1610,6 +1737,11 @@ function removeMaskDecorators(root: ParentNode) {
   collectMatches<HTMLElement>(root, [`[${MEDIA_ATTR}]`]).forEach((element) => {
     element.removeAttribute(MEDIA_ATTR);
   });
+
+  collectMatches<HTMLElement>(root, [`[${POST_ATTR}]`]).forEach((element) => {
+    element.removeAttribute(POST_ATTR);
+    element.removeAttribute(POST_LABEL_ATTR);
+  });
 }
 
 export function clearMaskingArtifacts(root: ParentNode = document) {
@@ -1651,6 +1783,7 @@ export function applyMasking(root: ParentNode, settings: MaskSettings) {
     return;
   }
 
+  applyPostMask(root, settings, account);
   applyIdentityMask(root, settings, account);
   applyProfileHeaderMask(root, settings, account);
   applyProfileDisplayNameFallbackMask(root, settings, account);
